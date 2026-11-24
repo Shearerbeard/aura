@@ -26,6 +26,9 @@ webserver = ["dep:aura-web-server", "aura-web-server/otel"]
 # Redis/Valkey session-store backend for web-server mode (`AURA_SESSION_STORE=redis`).
 session-store-redis = ["webserver", "aura-web-server/session-store-redis"]
 
+# SQLite journal session-store backend for web-server mode (`AURA_SESSION_STORE=sqlite`).
+session-store-sqlite = ["webserver", "aura-web-server/session-store-sqlite"]
+
 [dependencies]
 tokio = { workspace = true }
 serde = { workspace = true }

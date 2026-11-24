@@ -9,6 +9,9 @@
 #[cfg(feature = "session-store-redis")]
 mod redis;
 
+#[cfg(feature = "session-store-sqlite")]
+mod epoch_journal;
+
 use std::sync::Arc;
 
 use a2a_server::{InMemoryTaskStore, TaskStore};
@@ -20,8 +23,14 @@ use aura::session_store::{
 };
 use aura_config::{FileSessionStoreConfig, SessionStoreBackend, SessionStoreConfig};
 
+#[cfg(feature = "session-store-sqlite")]
+use aura_config::session_store::SqliteSessionStoreConfig;
+
 #[cfg(feature = "session-store-redis")]
 pub use redis::RedisSessionStore;
+
+#[cfg(feature = "session-store-sqlite")]
+pub use epoch_journal::{EpochSqliteJournalStore, JournalRecord};
 
 /// A pluggable backend for cross-instance session state, handing out one handle
 /// per capability.
@@ -73,6 +82,15 @@ pub async fn build_session_store(
         SessionStoreConfig::Redis(_) => Err(SessionStoreError::BackendUnavailable {
             backend: SessionStoreBackend::Redis.to_string(),
             feature: "session-store-redis".to_string(),
+        }),
+        #[cfg(feature = "session-store-sqlite")]
+        SessionStoreConfig::Sqlite(sqlite_config) => {
+            Ok(Arc::new(SqliteSessionStore::connect(sqlite_config).await?))
+        }
+        #[cfg(not(feature = "session-store-sqlite"))]
+        SessionStoreConfig::Sqlite(_) => Err(SessionStoreError::BackendUnavailable {
+            backend: SessionStoreBackend::Sqlite.to_string(),
+            feature: "session-store-sqlite".to_string(),
         }),
     }
 }
@@ -203,5 +221,67 @@ impl SessionStore for FileSessionStore {
     async fn ping(&self) -> Result<(), SessionStoreError> {
         self.approvals.probe_writable().await?;
         self.skills.probe_writable().await
+    }
+}
+
+/// The SQLite-backed backend: durable session journals in one database
+/// file; approvals, skill logs, tasks, run facts and the bus stay in
+/// memory.
+#[cfg(feature = "session-store-sqlite")]
+pub struct SqliteSessionStore {
+    approvals: Arc<InMemoryApprovalStore>,
+    tasks: Arc<InMemoryTaskStore>,
+    skills: Arc<InMemorySkillInvocationStore>,
+    journals: Arc<EpochSqliteJournalStore>,
+    runs: Arc<InMemoryRunStore>,
+    bus: Arc<InMemoryEventBus>,
+}
+
+#[cfg(feature = "session-store-sqlite")]
+impl SqliteSessionStore {
+    /// Open the journal database under the configured path, so a
+    /// misconfigured path fails at startup rather than on the first
+    /// append.
+    #[expect(unused_variables, reason = "todo!() body; filled by F3 (P73)")]
+    pub async fn connect(config: &SqliteSessionStoreConfig) -> Result<Self, SessionStoreError> {
+        todo!()
+    }
+}
+
+#[cfg(feature = "session-store-sqlite")]
+#[async_trait]
+impl SessionStore for SqliteSessionStore {
+    fn backend(&self) -> SessionStoreBackend {
+        SessionStoreBackend::Sqlite
+    }
+
+    fn approvals(&self) -> Arc<dyn ApprovalStore> {
+        self.approvals.clone()
+    }
+
+    fn tasks(&self) -> Arc<dyn TaskStore> {
+        self.tasks.clone()
+    }
+
+    fn skills(&self) -> Arc<dyn SkillInvocationStore> {
+        self.skills.clone()
+    }
+
+    fn journals(&self) -> Arc<dyn JournalStore> {
+        self.journals.clone()
+    }
+
+    fn runs(&self) -> Arc<dyn RunStore> {
+        self.runs.clone()
+    }
+
+    fn bus(&self) -> Arc<dyn EventBus> {
+        self.bus.clone()
+    }
+
+    /// A read-only head probe over the journal database; migrations take
+    /// the write lock and stay out of health checks.
+    async fn ping(&self) -> Result<(), SessionStoreError> {
+        todo!()
     }
 }

@@ -8,9 +8,10 @@
 //!
 //! | Env var                                   | Meaning                                             |
 //! | ----------------------------------------- | --------------------------------------------------- |
-//! | `AURA_SESSION_STORE`                      | backend: `memory` (default), `redis`, or `file`     |
+//! | `AURA_SESSION_STORE`                      | backend: `memory` (default), `redis`, `file`, or `sqlite` |
 //! | `AURA_SESSION_STORE_URL`                  | `redis://` / `rediss://` (Valkey ok; `redis`)       |
 //! | `AURA_SESSION_STORE_PATH`                 | store root directory (`file`; required)             |
+//! | `AURA_SESSION_STORE_SQLITE_PATH`          | journal database file (`sqlite`; required)          |
 //! | `AURA_SESSION_STORE_PREFIX`               | key/topic namespace (default `aura`)                |
 //! | `AURA_SESSION_STORE_CONNECT_TIMEOUT_SECS` | connection timeout (default 5)                      |
 //! | `AURA_SESSION_STORE_TASK_TTL_SECS`        | A2A task TTL, 0 = no expiry (default 86400)         |
@@ -32,6 +33,8 @@ pub enum SessionStoreBackend {
     Redis,
     /// File-backed approvals under a root directory.
     File,
+    /// SQLite-backed session journals in one database file.
+    Sqlite,
 }
 
 impl fmt::Display for SessionStoreBackend {
@@ -40,6 +43,7 @@ impl fmt::Display for SessionStoreBackend {
             SessionStoreBackend::Memory => "memory",
             SessionStoreBackend::Redis => "redis",
             SessionStoreBackend::File => "file",
+            SessionStoreBackend::Sqlite => "sqlite",
         };
         write!(f, "{s}")
     }
@@ -53,8 +57,9 @@ impl std::str::FromStr for SessionStoreBackend {
             "memory" => Ok(SessionStoreBackend::Memory),
             "redis" | "valkey" => Ok(SessionStoreBackend::Redis),
             "file" => Ok(SessionStoreBackend::File),
+            "sqlite" => Ok(SessionStoreBackend::Sqlite),
             other => Err(ConfigError::Validation(format!(
-                "unknown session store backend '{other}' (expected 'memory', 'redis', or 'file')"
+                "unknown session store backend '{other}' (expected 'memory', 'redis', 'file', or 'sqlite')"
             ))),
         }
     }
@@ -70,6 +75,8 @@ pub enum SessionStoreConfig {
     Redis(RedisSessionStoreConfig),
     /// Restart-durable approvals under a root directory.
     File(FileSessionStoreConfig),
+    /// Durable session journals in a SQLite database file.
+    Sqlite(SqliteSessionStoreConfig),
 }
 
 /// Connection settings for the Redis/Valkey backend.
@@ -106,7 +113,7 @@ impl SessionStoreConfig {
     /// `AURA_SESSION_STORE*` environment variables, defaulting to in-memory
     /// when unset. Backend-specific vars are only read (and only required)
     /// when their backend is selected: the URL for `redis`, the path for
-    /// `file`.
+    /// `file`, the database path for `sqlite`.
     pub fn from_env() -> Result<Self, ConfigError> {
         let backend = env_var("AURA_SESSION_STORE")
             .map(|raw| raw.parse())
@@ -116,6 +123,7 @@ impl SessionStoreConfig {
             SessionStoreBackend::Memory => Ok(Self::Memory),
             SessionStoreBackend::Redis => Ok(Self::Redis(RedisSessionStoreConfig::from_env()?)),
             SessionStoreBackend::File => Ok(Self::File(FileSessionStoreConfig::from_env()?)),
+            SessionStoreBackend::Sqlite => Ok(Self::Sqlite(SqliteSessionStoreConfig::from_env()?)),
         }
     }
 
@@ -126,6 +134,7 @@ impl SessionStoreConfig {
             Self::Memory => SessionStoreBackend::Memory,
             Self::Redis(_) => SessionStoreBackend::Redis,
             Self::File(_) => SessionStoreBackend::File,
+            Self::Sqlite(_) => SessionStoreBackend::Sqlite,
         }
     }
 }
@@ -173,6 +182,21 @@ impl FileSessionStoreConfig {
                     .unwrap_or(DEFAULT_SKILLS_TTL_SECS),
             ),
         })
+    }
+}
+
+/// Settings for the SQLite-backed journal store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SqliteSessionStoreConfig {
+    /// Journal database file path.
+    pub path: String,
+}
+
+impl SqliteSessionStoreConfig {
+    /// Read the journal database's file path from the environment. The
+    /// path is required; unset or blank reads as missing.
+    fn from_env() -> Result<Self, ConfigError> {
+        todo!()
     }
 }
 
