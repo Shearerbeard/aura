@@ -22,7 +22,7 @@ P72's — this record names the surfaces they need and nothing more.
 | `JournalRecord` | A stored journal event is the serialized `SessionEvent` as raw JSON, self-describing, with no identity of its own. | An event that names its own stream (`EntityId = ()`); a second discriminator or identity field. |
 | `EpochSqliteJournalStore` | One session's journal is one append-only stream under the `aura-journal` category, keyed by the session id, densely numbered from 1. | An interleaved double-writer append (conflict); a position handed out twice; a gap in a session's numbering. |
 | `SqliteSessionStore` | Journals are the only durable capability; approvals, tasks, skills, runs and the bus stay process-local. | A sqlite selection that claims durable approvals, tasks, skill logs, run facts, or bus state. |
-| `SqliteSessionStoreConfig` | The sqlite backend is located by exactly one required path. | A sqlite selection with no path — a parse error, never a runtime fallback or invented default. |
+| `SqliteSessionStoreConfig` | The sqlite backend is located by exactly one path, carried as a public `String`. | — (not enforced by the public shape, which permits an empty `path`; a missing or blank `AURA_SESSION_STORE_SQLITE_PATH` is rejected by F4's `from_env` parser, preserving the file backend's required-path convention — never a runtime fallback or invented default). |
 | `SessionStoreBackend::Sqlite` / `SessionStoreConfig::Sqlite` | The backend tag `sqlite` (`AURA_SESSION_STORE=sqlite`). | — (identity variants; constant mappings, not holes). |
 
 `JournalRecord` is transparent over any JSON value on purpose. The
@@ -36,7 +36,7 @@ is a future binary's new payload variant: it must surface as
 
 | Item | Visibility | Reaches into | Notes |
 | --- | --- | --- | --- |
-| `epoch_journal` module | `pub(crate)` items re-exported from `session_store.rs` | `aura::session_store` (JournalStore, JournalEntry, SessionStoreError), `aura::config::SessionId`, `aura_events`, `epoch::streams::sqlite` | Feature-gated `session-store-sqlite`; not compiled otherwise. |
+| `epoch_journal` module | private module; its selected public types are publicly re-exported from `session_store.rs` | `aura::session_store` (JournalStore, JournalEntry, SessionStoreError), `aura::config::SessionId`, `aura_events`, `epoch::streams::sqlite` | Feature-gated `session-store-sqlite`; not compiled otherwise. |
 | `JournalRecord` + field | `pub` (re-exported) | `serde_json::Value` | P72's backend-local fixtures build records directly over a second `SqliteEventStreams` on the same file (C3 loose record, C4 ceiling rows). |
 | `EpochSqliteJournalStore::connect(path)` | `pub` (re-exported) | `SqliteEventStreams::<String, JournalRecord>::open` + `migrate()` | Production entry is F3's `SqliteSessionStore::connect`; also the direct-adapter test seam. |
 | `map_append_error` | private | `AppendError<SqliteStreamsError>` → `SessionStoreError` | Same-file `#[cfg(test)] mod tests` (P72) reaches it for the C1 pure mapping oracle. |

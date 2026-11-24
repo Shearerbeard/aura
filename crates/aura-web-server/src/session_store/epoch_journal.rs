@@ -48,9 +48,7 @@ const MAX_STORED_POSITION: u64 = i64::MAX as u64;
 
 /// A journal event as stored: the serialized [`SessionEvent`] as raw JSON,
 /// self-describing, with no identity of its own — the stream key is the
-/// session id, supplied at append. The record accepts any JSON value, so a
-/// row this binary cannot decode into a [`SessionEvent`] is carried by the
-/// read path as undecodable rather than rejected at the storage boundary.
+/// session id, supplied at append. The record accepts any JSON value.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct JournalRecord(pub serde_json::Value);
@@ -108,6 +106,9 @@ impl JournalStore for EpochSqliteJournalStore {
         todo!()
     }
 
+    /// A stored record this binary cannot decode into a [`SessionEvent`] is
+    /// preserved as [`JournalEntry::Undecodable`]; the read continues past
+    /// it rather than failing.
     #[expect(unused_variables, reason = "todo!() body; filled by F2 (P73)")]
     async fn read(
         &self,
