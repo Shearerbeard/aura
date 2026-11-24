@@ -41,6 +41,12 @@ a2a-server = { package = "a2a-server-lf", git = "https://github.com/a2aproject/a
 
 redis = { version = "0.32", default-features = false, features = ["tokio-comp", "connection-manager", "script", "keep-alive"], optional = true }
 
+# SQLite journal session-store backend (`AURA_SESSION_STORE=sqlite`).
+# Pinned exact: the journal adapter is written against 0.2.0-beta.1's
+# public streams surface, and Epoch's default features pull esdb+redis,
+# which this backend does not use.
+epoch-journal = { version = "=0.2.0-beta.1", default-features = false, features = ["sqlite"], optional = true }
+
 [features]
 default = ["otel"]
 otel = ["aura/otel", "dep:tracing-opentelemetry", "dep:opentelemetry"]
@@ -48,6 +54,11 @@ otel = ["aura/otel", "dep:tracing-opentelemetry", "dep:opentelemetry"]
 # Redis/Valkey session-store backend (`AURA_SESSION_STORE=redis`).
 # The in-memory backend is always compiled; this only gates the Redis client.
 session-store-redis = ["dep:redis"]
+
+# SQLite journal session-store backend (`AURA_SESSION_STORE=sqlite`).
+# The in-memory backend is always compiled; this gates the Epoch SQLite
+# journal adapter, whose only durable capability is journals.
+session-store-sqlite = ["dep:epoch-journal"]
 
 # Integration test feature flags
 # Parent flag - enables all integration tests
